@@ -476,7 +476,7 @@ try:
 except Exception:
     bcrypt_version = '4.0.1'  # fallback
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 def hash_password(password: str) -> str:

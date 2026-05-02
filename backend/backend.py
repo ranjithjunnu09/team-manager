@@ -468,7 +468,12 @@ class NotificationUpdateSchema(BaseModel):
 # SECURITY — PASSWORD HASHING
 # =========================================
 
-pwd_context  = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Fix bcrypt compatibility with passlib
+import bcrypt as _bcrypt
+if not hasattr(_bcrypt, '__about__'):
+    _bcrypt.__about__ = type('about', (), {'__version__': _bcrypt.__version__})()
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 def hash_password(password: str) -> str:
@@ -476,8 +481,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
-
-
 # =========================================
 # DATABASE DEPENDENCY
 # =========================================

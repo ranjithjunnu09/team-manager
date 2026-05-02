@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   preview: {
-    allowedHosts: true
+    allowedHosts: [
+      "tranquil-benevolence-production-76d1.up.railway.app",
+      "tranquil-benevolence-production-dd44.up.railway.app"
+    ]
   }
 })

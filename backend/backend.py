@@ -66,7 +66,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://tranquil-benevolence-production-76d1.up.railway.app"
+        "https://tranquil-benevolence-production-76d1.up.railway.app",
+        "https://tranquil-benevolence-production-dd44.up.railway.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],

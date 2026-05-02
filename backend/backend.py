@@ -468,10 +468,13 @@ class NotificationUpdateSchema(BaseModel):
 # SECURITY — PASSWORD HASHING
 # =========================================
 
-# Fix bcrypt compatibility with passlib
-import bcrypt as _bcrypt
-if not hasattr(_bcrypt, '__about__'):
-    _bcrypt.__about__ = type('about', (), {'__version__': _bcrypt.__version__})()
+from importlib.metadata import version as get_package_version
+
+# Ensure bcrypt compatibility with passlib
+try:
+    bcrypt_version = get_package_version('bcrypt')
+except Exception:
+    bcrypt_version = '4.0.1'  # fallback
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")

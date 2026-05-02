@@ -63,12 +63,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://tranquil-benevolence-production-76d1.up.railway.app",
-        "https://tranquil-benevolence-production-dd44.up.railway.app"
-    ],
+    allow_origins=["*"],  # ← change this
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -571,6 +566,15 @@ def create_notification(db, user_id, type: str, message: str, link: str = None):
     )
     db.add(notification)
 
+
+
+# =========================================
+# CREATE TABLES ON STARTUP
+# =========================================
+
+@app.on_event("startup")
+async def startup():
+    Base.metadata.create_all(bind=engine)
 
 # =========================================
 # AUTH ROUTES

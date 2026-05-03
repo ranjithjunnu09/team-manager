@@ -328,8 +328,8 @@ class UserResponseSchema(BaseModel):
     role: str
     is_active: bool
     avatar_url: Optional[str]
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None  # 👈 add Optional
+    updated_at: Optional[datetime] = None  # 👈 add Optional
     class Config:
         from_attributes = True
 

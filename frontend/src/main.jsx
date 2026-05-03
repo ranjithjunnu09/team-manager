@@ -9,6 +9,23 @@ import "./index.css";
 // ======================================================
 
 
+// ======================================================
+// ERROR HELPER — normalizes Pydantic v2 array errors to strings
+// ======================================================
+
+function getErrorMsg(err, fallback = "An unexpected error occurred") {
+  const detail = err?.response?.data?.detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(e => {
+      const field = e.loc ? e.loc.slice(1).join(" → ") : "";
+      return field ? `${field}: ${e.msg}` : e.msg;
+    }).join(", ");
+  }
+  if (typeof detail === "object" && detail.msg) return detail.msg;
+  return fallback;
+}
 
 // ======================================================
 // AUTH CONTEXT
@@ -526,7 +543,7 @@ function SignupPage() {
       await API.post("/signup", form);
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.detail || "Signup failed. Please try again.");
+      setError(getErrorMsg(err, "Signup failed. Please try again."));
     } finally { setLoading(false); }
   };
 
@@ -541,16 +558,19 @@ function SignupPage() {
         <div style={S.formGroup}>
           <label style={S.label}>Full name</label>
           <input style={S.input} placeholder="Alex Johnson" value={form.name}
+            autoComplete="name"
             onChange={e => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div style={S.formGroup}>
           <label style={S.label}>Email address</label>
           <input style={S.input} type="email" placeholder="alex@company.com" value={form.email}
+            autoComplete="email"
             onChange={e => setForm({ ...form, email: e.target.value })} required />
         </div>
         <div style={S.formGroup}>
           <label style={S.label}>Password</label>
           <input style={S.input} type="password" placeholder="At least 8 characters" value={form.password}
+            autoComplete="new-password"
             onChange={e => setForm({ ...form, password: e.target.value })} required />
         </div>
         <div style={S.formGroup}>
@@ -588,7 +608,7 @@ function LoginPage() {
       login(res.data.access_token, res.data.refresh_token);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.detail || "Invalid credentials.");
+      setError(getErrorMsg(err, "Invalid credentials."));
     } finally { setLoading(false); }
   };
 
@@ -603,6 +623,7 @@ function LoginPage() {
         <div style={S.formGroup}>
           <label style={S.label}>Email address</label>
           <input style={S.input} type="email" placeholder="alex@company.com" value={form.email}
+            autoComplete="email"
             onChange={e => setForm({ ...form, email: e.target.value })} required />
         </div>
 
@@ -615,6 +636,7 @@ function LoginPage() {
               type={showPassword ? "text" : "password"}
               placeholder="Your password"
               value={form.password}
+              autoComplete="current-password"
               onChange={e => setForm({ ...form, password: e.target.value })}
               required
             />
@@ -835,7 +857,7 @@ function ProjectsPage() {
       setForm({ name: "", description: "", status: "active", deadline: "" });
       fetchProjects();
     } catch (err) {
-      setFormErr(err.response?.data?.detail || "Failed to create project");
+      setFormErr(getErrorMsg(err, "Failed to create project"));
     } finally { setSaving(false); }
   };
 
@@ -844,7 +866,7 @@ function ProjectsPage() {
     try {
       await API.delete(`/projects/${id}`);
       fetchProjects();
-    } catch (err) { alert(err.response?.data?.detail || "Failed"); }
+    } catch (err) { alert(getErrorMsg(err, "Failed to delete project")); }
   };
 
   return (
@@ -1000,7 +1022,7 @@ function ProjectDetailPage() {
       setTaskForm({ title: "", description: "", priority: "medium", due_date: "", assignee_id: "" });
       fetchAll();
     } catch (err) {
-      setTaskErr(err.response?.data?.detail || "Failed to create task");
+      setTaskErr(getErrorMsg(err, "Failed to create task"));
     } finally { setSaving(false); }
   };
 
@@ -1008,7 +1030,7 @@ function ProjectDetailPage() {
     try {
       await API.patch(`/tasks/${taskId}/status`, { status: newStatus });
       fetchAll();
-    } catch (err) { alert(err.response?.data?.detail || "Failed"); }
+    } catch (err) { alert(getErrorMsg(err, "Failed to update status")); }
   };
 
   const handleDeleteTask = async (taskId) => {
@@ -1016,7 +1038,7 @@ function ProjectDetailPage() {
     try {
       await API.delete(`/tasks/${taskId}`);
       fetchAll();
-    } catch (err) { alert(err.response?.data?.detail || "Failed"); }
+    } catch (err) { alert(getErrorMsg(err, "Failed to delete task")); }
   };
 
   const handleAddMember = async (e) => {
@@ -1028,7 +1050,7 @@ function ProjectDetailPage() {
       await API.post(`/projects/${projectId}/members`, { user_id: found.id, role: memberRole });
       setMemberEmail("");
       fetchAll();
-    } catch (err) { setMemberErr(err.response?.data?.detail || "Failed"); }
+    } catch (err) { setMemberErr(getErrorMsg(err, "Failed to add member")); }
   };
 
   const handleRemoveMember = async (userId) => {
@@ -1036,7 +1058,7 @@ function ProjectDetailPage() {
     try {
       await API.delete(`/projects/${projectId}/members/${userId}`);
       fetchAll();
-    } catch (err) { alert(err.response?.data?.detail || "Failed"); }
+    } catch (err) { alert(getErrorMsg(err, "Failed to remove member")); }
   };
 
   const statusVariant   = (s) => s === "done" ? "done" : s === "in_progress" ? "in_progress" : "todo";
@@ -1325,7 +1347,7 @@ function MyTasksPage() {
       await API.patch(`/tasks/${taskId}/status`, { status: newStatus });
       const res = await API.get("/tasks/my-tasks");
       setTasks(res.data);
-    } catch (err) { alert(err.response?.data?.detail || "Failed"); }
+    } catch (err) { alert(getErrorMsg(err, "Failed to update status")); }
   };
 
   const filtered = filter === "all"     ? tasks

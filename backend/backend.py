@@ -61,9 +61,13 @@ app = FastAPI(
 # CORS MIDDLEWARE
 # =========================================
 
+# ✅ Fix
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ← change this
+    allow_origins=[
+        "http://localhost:5173",
+        "https://tranquil-benevolence-production-dd44.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

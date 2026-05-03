@@ -570,9 +570,10 @@ function SignupPage() {
 function LoginPage() {
   const navigate      = useNavigate();
   const { login }     = useAuth();
-  const [form, setForm]       = useState({ email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [form, setForm]         = useState({ email: "", password: "" });
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [showPassword, setShowPassword] = useState(false); // 👈 ADD THIS
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -599,11 +600,54 @@ function LoginPage() {
           <input style={S.input} type="email" placeholder="alex@company.com" value={form.email}
             onChange={e => setForm({ ...form, email: e.target.value })} required />
         </div>
+
+        {/* 👇 REPLACE password field with this */}
         <div style={S.formGroup}>
           <label style={S.label}>Password</label>
-          <input style={S.input} type="password" placeholder="Your password" value={form.password}
-            onChange={e => setForm({ ...form, password: e.target.value })} required />
+          <div style={{ position: "relative" }}>
+            <input
+              style={{ ...S.input, paddingRight: 40 }}
+              type={showPassword ? "text" : "password"}
+              placeholder="Your password"
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: C.muted,
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {showPassword ? (
+                // Eye-off icon (hide)
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                // Eye icon (show)
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
+
         <Btn type="submit" disabled={loading} style={{ width: "100%", justifyContent: "center" }}>
           {loading ? <><Spinner size={14} /> Signing in...</> : "Sign in"}
         </Btn>

@@ -1,14 +1,14 @@
+import API from "./api.js";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from "react-router-dom";
-import axios from "axios";
 import "./index.css";
 
 // ======================================================
 // AXIOS INSTANCE
 // ======================================================
 
-const API = axios.create({baseURL: import.meta.env.VITE_API_URL});
+
 
 // ======================================================
 // AUTH CONTEXT
@@ -22,30 +22,6 @@ function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        if (token) {
-          API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-          const res = await API.get("/me");
-          setUser(res.data);
-        }
-      } catch {
-        logout();
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, [token]);
-
-  const login = (accessToken, refreshToken) => {
-    localStorage.setItem("token",         accessToken);
-    localStorage.setItem("refresh_token", refreshToken);
-    setToken(accessToken);
-    API.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-  };
-
   const logout = async () => {
     const refreshToken = localStorage.getItem("refresh_token");
     if (refreshToken) {
@@ -58,13 +34,40 @@ function AuthProvider({ children }) {
     delete API.defaults.headers.common["Authorization"];
   };
 
+  const login = (accessToken, refreshToken) => {
+    localStorage.setItem("token", accessToken);
+    localStorage.setItem("refresh_token", refreshToken);
+    setToken(accessToken);
+    API.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+  };
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        if (token) {
+          API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          const res = await API.get("/me");
+          setUser(res.data);
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        if (err?.response?.status === 401) {
+          logout();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, [token]);
+
   return (
     <AuthContext.Provider value={{ token, user, setUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
 // ======================================================
 // PROTECTED ROUTE
 // ======================================================
@@ -575,7 +578,7 @@ function LoginPage() {
   const [form, setForm]         = useState({ email: "", password: "" });
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
-  const [showPassword, setShowPassword] = useState(false); // 👈 ADD THIS
+  const [showPassword, setShowPassword] = useState(false); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -603,7 +606,7 @@ function LoginPage() {
             onChange={e => setForm({ ...form, email: e.target.value })} required />
         </div>
 
-        {/* 👇 REPLACE password field with this */}
+        
         <div style={S.formGroup}>
           <label style={S.label}>Password</label>
           <div style={{ position: "relative" }}>
@@ -974,10 +977,9 @@ function ProjectDetailPage() {
       setProject(proj.data);
       setTasks(t.data);
       setMembers(m.data);
-      if (user?.role === "admin") {
-        const usersRes = await API.get("/users").catch(() => ({ data: [] }));
-        setAllUsers(usersRes.data);
-      }
+      // Fetch for ALL roles so member names show correctly
+      const usersRes = await API.get("/users").catch(() => ({ data: [] }));
+      setAllUsers(usersRes.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [projectId, user]);
@@ -1229,7 +1231,7 @@ function ProjectDetailPage() {
                           <option value="done">Done</option>
                         </select>
                       )}
-                      {col.key === "overdue" && (
+                      {task.status !== "done" && (
                         <select
                           value={task.status}
                           onChange={e => handleStatusChange(task.id, e.target.value)}

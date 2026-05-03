@@ -5,7 +5,6 @@ export default defineConfig({
   plugins: [react()],
   preview: {
     allowedHosts: [
-      "tranquil-benevolence-production-76d1.up.railway.app",
       "tranquil-benevolence-production-dd44.up.railway.app"
     ]
   }

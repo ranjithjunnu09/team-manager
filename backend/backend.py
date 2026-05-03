@@ -694,7 +694,7 @@ def update_me(
 @app.get("/users", response_model=List[UserResponseSchema])
 def get_all_users(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_current_user), 
 ):
     return db.query(User).all()
 

@@ -261,16 +261,9 @@ class ActivityLog(Base):
     new_value  = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    user    = relationship("Project", back_populates="activities", foreign_keys=[project_id], overlaps="user,activities")
-    project = relationship("Project", back_populates="activities", foreign_keys=[project_id])
-    task    = relationship("Task",    back_populates="activities", foreign_keys=[task_id])
-
-    # Fix overlapping relationships
     user    = relationship("User",    back_populates="activities", foreign_keys=[user_id])
     project = relationship("Project", back_populates="activities", foreign_keys=[project_id])
     task    = relationship("Task",    back_populates="activities", foreign_keys=[task_id])
-
-
 # =========================================
 # 9. NOTIFICATION MODEL
 # =========================================

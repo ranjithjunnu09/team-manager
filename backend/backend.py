@@ -358,8 +358,8 @@ class ProjectResponseSchema(BaseModel):
     status: str
     owner_id: UUID
     deadline: Optional[date]
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None  # 👈 fix
+    updated_at: Optional[datetime] = None  # 👈 fix
     class Config:
         from_attributes = True
 
@@ -373,7 +373,7 @@ class ProjectMemberResponseSchema(BaseModel):
     project_id: UUID
     user_id: UUID
     role: str
-    joined_at: datetime
+    joined_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -424,18 +424,17 @@ class CommentResponseSchema(BaseModel):
     task_id: UUID
     user_id: UUID
     comment: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
-# --- Attachment ---
 class AttachmentResponseSchema(BaseModel):
     id: UUID
     task_id: UUID
     uploaded_by: UUID
     file_name: str
     file_url: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -448,11 +447,10 @@ class ActivityLogResponseSchema(BaseModel):
     action: str
     old_value: Optional[str]
     new_value: Optional[str]
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
-# --- Notification ---
 class NotificationResponseSchema(BaseModel):
     id: UUID
     user_id: UUID
@@ -460,7 +458,7 @@ class NotificationResponseSchema(BaseModel):
     message: str
     link: Optional[str]
     is_read: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -743,10 +741,10 @@ def get_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    owned   = db.query(Project).filter(Project.owner_id == current_user.id)
-    membered = db.query(Project).join(ProjectMember).filter(ProjectMember.user_id == current_user.id)
-    return owned.union(membered).all()
-
+    projects = db.query(Project).join(ProjectMember).filter(
+        ProjectMember.user_id == current_user.id
+    ).all()
+    return projects
 
 @app.get("/projects/{project_id}", response_model=ProjectResponseSchema)
 def get_project(

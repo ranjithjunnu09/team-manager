@@ -10,7 +10,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 
-from sqlalchemy import create_engine, Column, String, Text, Boolean, Date, DateTime, ForeignKey, CheckConstraint, func
+from sqlalchemy import create_engine, Column, String, Text, Boolean, Date, DateTime, ForeignKey, CheckConstraint, func, or_
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
 
@@ -980,8 +980,12 @@ def get_my_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Return tasks assigned to the user OR created by the user (deduped)
     return db.query(Task).filter(
-        Task.assignee_id == current_user.id
+        or_(
+            Task.assignee_id == current_user.id,
+            Task.created_by == current_user.id,
+        )
     ).order_by(Task.created_at.desc()).all()
 
 

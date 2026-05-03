@@ -1394,7 +1394,7 @@ function MyTasksPage() {
           <div style={S.card}>{[...Array(4)].map((_, i) => <SkeletonRow key={i} />)}</div>
         ) : filtered.length === 0 ? (
           <div style={S.card}>
-            <EmptyState title="No tasks found" subtitle="Tasks assigned to you will appear here" />
+            <EmptyState title="No tasks found" subtitle="Tasks assigned to you or created by you will appear here" />
           </div>
         ) : (
           <div style={S.card}>

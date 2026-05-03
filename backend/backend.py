@@ -14,7 +14,7 @@ from sqlalchemy import create_engine, Column, String, Text, Boolean, Date, DateT
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date, timedelta
@@ -30,11 +30,11 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=".env")
 
-DATABASE_URL               = os.getenv("DATABASE_URL")
-SECRET_KEY                 = os.getenv("SECRET_KEY")
-ALGORITHM                  = os.getenv("ALGORITHM", "HS256")
+DATABASE_URL                = os.getenv("DATABASE_URL")
+SECRET_KEY                  = os.getenv("SECRET_KEY")
+ALGORITHM                   = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
-REFRESH_TOKEN_EXPIRE_DAYS  = 7
+REFRESH_TOKEN_EXPIRE_DAYS   = 7
 
 
 # =========================================
@@ -61,7 +61,6 @@ app = FastAPI(
 # CORS MIDDLEWARE
 # =========================================
 
-# ✅ Fix
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -99,15 +98,15 @@ class User(Base):
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    sessions             = relationship("UserSession",    back_populates="user",   cascade="all, delete")
-    owned_projects       = relationship("Project",        back_populates="owner",  cascade="all, delete")
-    project_memberships  = relationship("ProjectMember",  back_populates="user",   cascade="all, delete")
-    assigned_tasks       = relationship("Task", foreign_keys="Task.assignee_id",  back_populates="assignee")
-    created_tasks        = relationship("Task", foreign_keys="Task.created_by",   back_populates="creator")
-    comments             = relationship("TaskComment",    back_populates="user",   cascade="all, delete")
+    sessions             = relationship("UserSession",    back_populates="user",     cascade="all, delete")
+    owned_projects       = relationship("Project",        back_populates="owner",    cascade="all, delete")
+    project_memberships  = relationship("ProjectMember",  back_populates="user",     cascade="all, delete")
+    assigned_tasks       = relationship("Task", foreign_keys="Task.assignee_id",     back_populates="assignee")
+    created_tasks        = relationship("Task", foreign_keys="Task.created_by",      back_populates="creator")
+    comments             = relationship("TaskComment",    back_populates="user",     cascade="all, delete")
     attachments          = relationship("TaskAttachment", back_populates="uploader", cascade="all, delete")
     activities           = relationship("ActivityLog",    back_populates="user")
-    notifications        = relationship("Notification",   back_populates="user",   cascade="all, delete")
+    notifications        = relationship("Notification",   back_populates="user",     cascade="all, delete")
 
     __table_args__ = (
         CheckConstraint("role IN ('admin', 'member')", name="check_user_role"),
@@ -169,8 +168,8 @@ class ProjectMember(Base):
     role       = Column(String(20), nullable=False, default="member")
     joined_at  = Column(DateTime, default=datetime.utcnow)
 
-    project = relationship("Project",     back_populates="members")
-    user    = relationship("User",        back_populates="project_memberships")
+    project = relationship("Project", back_populates="members")
+    user    = relationship("User",    back_populates="project_memberships")
 
     __table_args__ = (
         CheckConstraint("role IN ('admin', 'member')", name="check_project_member_role"),
@@ -205,8 +204,8 @@ class Task(Base):
     activities  = relationship("ActivityLog",    back_populates="task", cascade="all, delete")
 
     __table_args__ = (
-        CheckConstraint("status IN ('todo', 'in_progress', 'done')",    name="check_task_status"),
-        CheckConstraint("priority IN ('low', 'medium', 'high')",        name="check_task_priority"),
+        CheckConstraint("status IN ('todo', 'in_progress', 'done')", name="check_task_status"),
+        CheckConstraint("priority IN ('low', 'medium', 'high')",     name="check_task_priority"),
     )
 
 
@@ -246,7 +245,7 @@ class TaskAttachment(Base):
 
 
 # =========================================
-# 8. ACTIVITY LOG MODEL
+# 8. ACTIVITY LOG MODEL — FIXED (no duplicate relationships)
 # =========================================
 
 class ActivityLog(Base):
@@ -264,6 +263,8 @@ class ActivityLog(Base):
     user    = relationship("User",    back_populates="activities", foreign_keys=[user_id])
     project = relationship("Project", back_populates="activities", foreign_keys=[project_id])
     task    = relationship("Task",    back_populates="activities", foreign_keys=[task_id])
+
+
 # =========================================
 # 9. NOTIFICATION MODEL
 # =========================================
@@ -290,7 +291,8 @@ class Notification(Base):
 
 
 # =========================================
-# PYDANTIC SCHEMAS
+# PYDANTIC SCHEMAS — ALL FIXED FOR PYDANTIC V2
+# (replaced class Config with model_config)
 # =========================================
 
 # --- Auth ---
@@ -315,145 +317,145 @@ class RefreshTokenSchema(BaseModel):
 
 # --- User ---
 class UserResponseSchema(BaseModel):
-    id: UUID
-    name: str
-    email: EmailStr
-    role: str
-    is_active: bool
-    avatar_url: Optional[str]
-    created_at: Optional[datetime] = None  # 👈 add Optional
-    updated_at: Optional[datetime] = None  # 👈 add Optional
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    id:         UUID
+    name:       str
+    email:      EmailStr
+    role:       str
+    is_active:  bool
+    avatar_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class UserUpdateSchema(BaseModel):
-    name: Optional[str] = None
-    avatar_url: Optional[str] = None
-    is_active: Optional[bool] = None
+    name:       Optional[str]  = None
+    avatar_url: Optional[str]  = None
+    is_active:  Optional[bool] = None
 
 # --- Project ---
 class ProjectCreateSchema(BaseModel):
-    name: str = Field(..., min_length=3, max_length=200)
-    description: Optional[str] = None
-    status: Optional[str] = "active"
-    deadline: Optional[date] = None
+    name:        str = Field(..., min_length=3, max_length=200)
+    description: Optional[str]  = None
+    status:      Optional[str]  = "active"
+    deadline:    Optional[date] = None
 
 class ProjectUpdateSchema(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    deadline: Optional[date] = None
+    name:        Optional[str]  = None
+    description: Optional[str]  = None
+    status:      Optional[str]  = None
+    deadline:    Optional[date] = None
 
 class ProjectResponseSchema(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str]
-    status: str
-    owner_id: UUID
-    deadline: Optional[date]
-    created_at: Optional[datetime] = None  # 👈 fix
-    updated_at: Optional[datetime] = None  # 👈 fix
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    id:          UUID
+    name:        str
+    description: Optional[str]      = None
+    status:      str
+    owner_id:    UUID
+    deadline:    Optional[date]     = None
+    created_at:  Optional[datetime] = None
+    updated_at:  Optional[datetime] = None
 
 # --- Project Member ---
 class ProjectMemberCreateSchema(BaseModel):
     user_id: UUID
-    role: Optional[str] = "member"
+    role:    Optional[str] = "member"
 
 class ProjectMemberResponseSchema(BaseModel):
-    id: UUID
+    model_config = ConfigDict(from_attributes=True)
+
+    id:         UUID
     project_id: UUID
-    user_id: UUID
-    role: str
-    joined_at: Optional[datetime] = None
-    class Config:
-        from_attributes = True
+    user_id:    UUID
+    role:       str
+    joined_at:  Optional[datetime] = None
 
 # --- Task ---
 class TaskCreateSchema(BaseModel):
-    title: str = Field(..., min_length=3, max_length=200)
-    description: Optional[str] = None
-    status: Optional[str] = "todo"
-    priority: Optional[str] = "medium"
-    due_date: Optional[date] = None
-    project_id: UUID
+    title:       str = Field(..., min_length=3, max_length=200)
+    description: Optional[str]  = None
+    status:      Optional[str]  = "todo"
+    priority:    Optional[str]  = "medium"
+    due_date:    Optional[date] = None
+    project_id:  UUID
     assignee_id: Optional[UUID] = None
 
 class TaskUpdateSchema(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    priority: Optional[str] = None
-    due_date: Optional[date] = None
-    assignee_id: Optional[UUID] = None
+    title:        Optional[str]      = None
+    description:  Optional[str]      = None
+    status:       Optional[str]      = None
+    priority:     Optional[str]      = None
+    due_date:     Optional[date]     = None
+    assignee_id:  Optional[UUID]     = None
     completed_at: Optional[datetime] = None
 
 class TaskStatusUpdateSchema(BaseModel):
     status: str
 
 class TaskResponseSchema(BaseModel):
-    id: UUID
-    title: str
-    description: Optional[str]
-    status: str
-    priority: str
-    due_date: Optional[date]
-    completed_at: Optional[datetime]
-    project_id: UUID
-    assignee_id: Optional[UUID]
-    created_by: UUID
-    created_at: Optional[datetime] = None  # 👈 change this
-    updated_at: Optional[datetime] = None  # 👈 change this
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    id:           UUID
+    title:        str
+    description:  Optional[str]      = None
+    status:       str
+    priority:     str
+    due_date:     Optional[date]     = None
+    completed_at: Optional[datetime] = None
+    project_id:   UUID
+    assignee_id:  Optional[UUID]     = None
+    created_by:   UUID
+    created_at:   Optional[datetime] = None
+    updated_at:   Optional[datetime] = None
 
 # --- Comment ---
 class CommentCreateSchema(BaseModel):
     comment: str = Field(..., min_length=1)
 
 class CommentResponseSchema(BaseModel):
-    id: UUID
-    task_id: UUID
-    user_id: UUID
-    comment: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id:         UUID
+    task_id:    UUID
+    user_id:    UUID
+    comment:    str
     created_at: Optional[datetime] = None
-    class Config:
-        from_attributes = True
 
 class AttachmentResponseSchema(BaseModel):
-    id: UUID
-    task_id: UUID
+    model_config = ConfigDict(from_attributes=True)
+
+    id:          UUID
+    task_id:     UUID
     uploaded_by: UUID
-    file_name: str
-    file_url: str
-    created_at: Optional[datetime] = None
-    class Config:
-        from_attributes = True
+    file_name:   str
+    file_url:    str
+    created_at:  Optional[datetime] = None
 
 # --- Activity ---
 class ActivityLogResponseSchema(BaseModel):
-    id: UUID
-    user_id: Optional[UUID]
-    project_id: Optional[UUID]
-    task_id: Optional[UUID]
-    action: str
-    old_value: Optional[str]
-    new_value: Optional[str]
+    model_config = ConfigDict(from_attributes=True)
+
+    id:         UUID
+    user_id:    Optional[UUID]     = None
+    project_id: Optional[UUID]     = None
+    task_id:    Optional[UUID]     = None
+    action:     str
+    old_value:  Optional[str]      = None
+    new_value:  Optional[str]      = None
     created_at: Optional[datetime] = None
-    class Config:
-        from_attributes = True
 
 class NotificationResponseSchema(BaseModel):
-    id: UUID
-    user_id: UUID
-    type: str
-    message: str
-    link: Optional[str]
-    is_read: bool
+    model_config = ConfigDict(from_attributes=True)
+
+    id:         UUID
+    user_id:    UUID
+    type:       str
+    message:    str
+    link:       Optional[str]      = None
+    is_read:    bool
     created_at: Optional[datetime] = None
-    class Config:
-        from_attributes = True
 
 class NotificationUpdateSchema(BaseModel):
     is_read: bool
@@ -465,13 +467,12 @@ class NotificationUpdateSchema(BaseModel):
 
 from importlib.metadata import version as get_package_version
 
-# Ensure bcrypt compatibility with passlib
 try:
     bcrypt_version = get_package_version('bcrypt')
 except Exception:
-    bcrypt_version = '4.0.1'  # fallback
+    bcrypt_version = '4.0.1'
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+pwd_context   = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 def hash_password(password: str) -> str:
@@ -479,6 +480,8 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
+
+
 # =========================================
 # DATABASE DEPENDENCY
 # =========================================
@@ -568,7 +571,6 @@ def create_notification(db, user_id, type: str, message: str, link: str = None):
     db.add(notification)
 
 
-
 # =========================================
 # CREATE TABLES ON STARTUP
 # =========================================
@@ -576,6 +578,7 @@ def create_notification(db, user_id, type: str, message: str, link: str = None):
 @app.on_event("startup")
 async def startup():
     Base.metadata.create_all(bind=engine)
+
 
 # =========================================
 # AUTH ROUTES
@@ -605,9 +608,9 @@ def login(user_data: UserLoginSchema, db: Session = Depends(get_db)):
     if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token_data     = {"sub": str(user.id), "role": user.role}
-    access_token   = create_access_token(token_data)
-    refresh_token  = create_refresh_token(token_data)
+    token_data    = {"sub": str(user.id), "role": user.role}
+    access_token  = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
 
     session = UserSession(
         user_id=user.id,
@@ -653,9 +656,9 @@ def refresh_token(refresh_data: RefreshTokenSchema, db: Session = Depends(get_db
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    token_data    = {"sub": str(user.id), "role": user.role}
-    access_token  = create_access_token(token_data)
-    new_refresh   = create_refresh_token(token_data)
+    token_data  = {"sub": str(user.id), "role": user.role}
+    access_token = create_access_token(token_data)
+    new_refresh  = create_refresh_token(token_data)
 
     session.refresh_token = new_refresh
     session.expires_at    = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -679,9 +682,9 @@ def update_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if user_data.name        is not None: current_user.name       = user_data.name
-    if user_data.avatar_url  is not None: current_user.avatar_url = user_data.avatar_url
-    if user_data.is_active   is not None: current_user.is_active  = user_data.is_active
+    if user_data.name       is not None: current_user.name       = user_data.name
+    if user_data.avatar_url is not None: current_user.avatar_url = user_data.avatar_url
+    if user_data.is_active  is not None: current_user.is_active  = user_data.is_active
     current_user.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(current_user)
@@ -722,7 +725,6 @@ def create_project(
     db.commit()
     db.refresh(new_project)
 
-    # Auto-add owner as admin member
     db.add(ProjectMember(project_id=new_project.id, user_id=current_user.id, role="admin"))
     log_activity(db, current_user.id, f"Created project '{new_project.name}'", project_id=new_project.id)
     db.commit()
@@ -734,10 +736,10 @@ def get_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    projects = db.query(Project).join(ProjectMember).filter(
+    return db.query(Project).join(ProjectMember).filter(
         ProjectMember.user_id == current_user.id
     ).all()
-    return projects
+
 
 @app.get("/projects/{project_id}", response_model=ProjectResponseSchema)
 def get_project(
@@ -903,8 +905,7 @@ def remove_project_member(
 
 # =========================================
 # TASK ROUTES
-# NOTE: Static routes (/overdue) MUST come
-# before dynamic routes (/{task_id})
+# NOTE: Static routes MUST come before dynamic /{task_id}
 # =========================================
 
 @app.post("/tasks", response_model=TaskResponseSchema)
@@ -947,18 +948,21 @@ def create_task(
 
     if task_data.assignee_id:
         create_notification(db, task_data.assignee_id, "task_assigned", f"You were assigned task '{new_task.title}'")
-    log_activity(db, current_user.id, f"Created task '{new_task.title}'", project_id=task_data.project_id, task_id=new_task.id)
+    log_activity(db, current_user.id, f"Created task '{new_task.title}'",
+                 project_id=task_data.project_id, task_id=new_task.id)
     db.commit()
     return new_task
 
 
-# STATIC route — must be above /{task_id}
+# STATIC — must be above /{task_id}
 @app.get("/tasks/my-tasks", response_model=List[TaskResponseSchema])
 def get_my_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Task).filter(Task.assignee_id == current_user.id).order_by(Task.created_at.desc()).all()
+    return db.query(Task).filter(
+        Task.assignee_id == current_user.id
+    ).order_by(Task.created_at.desc()).all()
 
 
 @app.get("/tasks/{task_id}", response_model=TaskResponseSchema)
@@ -1056,7 +1060,6 @@ def delete_task(
     return {"message": "Task deleted successfully"}
 
 
-# FIX: uses request body (TaskStatusUpdateSchema) not query param
 @app.patch("/tasks/{task_id}/status", response_model=TaskResponseSchema)
 def update_task_status(
     task_id: UUID,
@@ -1082,7 +1085,7 @@ def update_task_status(
         create_notification(db, task.assignee_id, "task_updated",
                             f"Task '{task.title}' status changed to '{body.status}'")
 
-    log_activity(db, current_user.id, f"Changed task status",
+    log_activity(db, current_user.id, "Changed task status",
                  project_id=task.project_id, task_id=task.id,
                  old_value=old_status, new_value=body.status)
     db.commit()
@@ -1282,8 +1285,7 @@ def delete_attachment(
 
 # =========================================
 # NOTIFICATION ROUTES
-# NOTE: Static routes MUST come before
-# dynamic /{notification_id} routes
+# NOTE: Static routes MUST come before dynamic /{notification_id}
 # =========================================
 
 @app.get("/notifications", response_model=List[NotificationResponseSchema])

@@ -410,8 +410,8 @@ class TaskResponseSchema(BaseModel):
     project_id: UUID
     assignee_id: Optional[UUID]
     created_by: UUID
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None  # 👈 change this
+    updated_at: Optional[datetime] = None  # 👈 change this
     class Config:
         from_attributes = True
 

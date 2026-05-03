@@ -17,7 +17,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
+from contextlib import asynccontextmanager
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -50,10 +51,23 @@ Base         = declarative_base()
 # FASTAPI INITIALIZATION
 # =========================================
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Validate SECRET_KEY strength on startup
+    if not SECRET_KEY or len(SECRET_KEY) < 32:
+        import warnings
+        warnings.warn(
+            "WARNING: SECRET_KEY is weak or missing. Please set a strong key (32+ chars) in .env",
+            stacklevel=1
+        )
+    Base.metadata.create_all(bind=engine)
+    yield
+
 app = FastAPI(
     title="Team Task Manager API",
     description="Production-style SaaS Team Collaboration Platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 
@@ -95,8 +109,8 @@ class User(Base):
     role            = Column(String(20), nullable=False, default="member")
     is_active       = Column(Boolean, default=True)
     avatar_url      = Column(Text)
-    created_at      = Column(DateTime, default=datetime.utcnow)
-    updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     sessions             = relationship("UserSession",    back_populates="user",     cascade="all, delete")
     owned_projects       = relationship("Project",        back_populates="owner",    cascade="all, delete")
@@ -123,8 +137,8 @@ class UserSession(Base):
     id            = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id       = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     refresh_token = Column(Text, unique=True, nullable=False)
-    expires_at    = Column(DateTime, nullable=False)
-    created_at    = Column(DateTime, default=datetime.utcnow)
+    expires_at    = Column(DateTime(timezone=True), nullable=False)
+    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="sessions")
 
@@ -142,8 +156,8 @@ class Project(Base):
     status      = Column(String(20), nullable=False, default="active")
     owner_id    = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     deadline    = Column(Date)
-    created_at  = Column(DateTime, default=datetime.utcnow)
-    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     owner      = relationship("User",          back_populates="owned_projects")
     members    = relationship("ProjectMember", back_populates="project", cascade="all, delete")
@@ -166,7 +180,7 @@ class ProjectMember(Base):
     project_id = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     user_id    = Column(PG_UUID(as_uuid=True), ForeignKey("users.id",    ondelete="CASCADE"), nullable=False)
     role       = Column(String(20), nullable=False, default="member")
-    joined_at  = Column(DateTime, default=datetime.utcnow)
+    joined_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     project = relationship("Project", back_populates="members")
     user    = relationship("User",    back_populates="project_memberships")
@@ -193,8 +207,8 @@ class Task(Base):
     project_id   = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     assignee_id  = Column(PG_UUID(as_uuid=True), ForeignKey("users.id",    ondelete="SET NULL"))
     created_by   = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"),   nullable=False)
-    created_at   = Column(DateTime, default=datetime.utcnow)
-    updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     project     = relationship("Project",        back_populates="tasks")
     assignee    = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_tasks")
@@ -220,7 +234,7 @@ class TaskComment(Base):
     task_id    = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
     user_id    = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     comment    = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     task = relationship("Task", back_populates="comments")
     user = relationship("User", back_populates="comments")
@@ -238,7 +252,7 @@ class TaskAttachment(Base):
     uploaded_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     file_name   = Column(String(255), nullable=False)
     file_url    = Column(Text, nullable=False)
-    created_at  = Column(DateTime, default=datetime.utcnow)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     task     = relationship("Task", back_populates="attachments")
     uploader = relationship("User", back_populates="attachments")
@@ -258,7 +272,7 @@ class ActivityLog(Base):
     action     = Column(String(255), nullable=False)
     old_value  = Column(Text)
     new_value  = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user    = relationship("User",    back_populates="activities", foreign_keys=[user_id])
     project = relationship("Project", back_populates="activities", foreign_keys=[project_id])
@@ -278,7 +292,7 @@ class Notification(Base):
     message    = Column(Text, nullable=False)
     link       = Column(Text)
     is_read    = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="notifications")
 
@@ -500,12 +514,12 @@ def get_db():
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    to_encode["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    to_encode["exp"] = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode["exp"] = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -572,12 +586,8 @@ def create_notification(db, user_id, type: str, message: str, link: str = None):
 
 
 # =========================================
-# CREATE TABLES ON STARTUP
+# NOTE: Table creation is handled in lifespan() above
 # =========================================
-
-@app.on_event("startup")
-async def startup():
-    Base.metadata.create_all(bind=engine)
 
 
 # =========================================
@@ -589,11 +599,15 @@ def signup(user_data: UserCreateSchema, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # Validate role — only allow known values; default to 'member'
+    allowed_roles = {"member", "admin"}
+    role = user_data.role if user_data.role in allowed_roles else "member"
+
     new_user = User(
         name=user_data.name,
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
-        role=user_data.role,
+        role=role,
         avatar_url=user_data.avatar_url,
     )
     db.add(new_user)
@@ -615,7 +629,7 @@ def login(user_data: UserLoginSchema, db: Session = Depends(get_db)):
     session = UserSession(
         user_id=user.id,
         refresh_token=refresh_token,
-        expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
     db.add(session)
     db.commit()
@@ -643,7 +657,13 @@ def refresh_token(refresh_data: RefreshTokenSchema, db: Session = Depends(get_db
     session = db.query(UserSession).filter(
         UserSession.refresh_token == refresh_data.refresh_token
     ).first()
-    if not session or session.expires_at < datetime.utcnow():
+
+    now = datetime.now(timezone.utc)
+    # Make expires_at timezone-aware for safe comparison
+    expires = session.expires_at if session and session.expires_at.tzinfo else (
+        session.expires_at.replace(tzinfo=timezone.utc) if session else None
+    )
+    if not session or expires < now:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
     try:
@@ -656,12 +676,12 @@ def refresh_token(refresh_data: RefreshTokenSchema, db: Session = Depends(get_db
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    token_data  = {"sub": str(user.id), "role": user.role}
+    token_data   = {"sub": str(user.id), "role": user.role}
     access_token = create_access_token(token_data)
     new_refresh  = create_refresh_token(token_data)
 
     session.refresh_token = new_refresh
-    session.expires_at    = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    session.expires_at    = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     db.commit()
 
     return {"access_token": access_token, "refresh_token": new_refresh, "token_type": "bearer"}
@@ -685,7 +705,7 @@ def update_me(
     if user_data.name       is not None: current_user.name       = user_data.name
     if user_data.avatar_url is not None: current_user.avatar_url = user_data.avatar_url
     if user_data.is_active  is not None: current_user.is_active  = user_data.is_active
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(current_user)
     return current_user
@@ -783,7 +803,7 @@ def update_project(
     if project_data.description is not None: project.description = project_data.description
     if project_data.status      is not None: project.status      = project_data.status
     if project_data.deadline    is not None: project.deadline    = project_data.deadline
-    project.updated_at = datetime.utcnow()
+    project.updated_at = datetime.now(timezone.utc)
 
     log_activity(db, current_user.id, f"Updated project '{project.name}'", project_id=project.id)
     db.commit()
@@ -1020,9 +1040,9 @@ def update_task(
     if task_data.completed_at is not None: task.completed_at = task_data.completed_at
 
     if task_data.status == "done" and old_status != "done":
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(timezone.utc)
 
-    task.updated_at = datetime.utcnow()
+    task.updated_at = datetime.now(timezone.utc)
 
     if task_data.assignee_id:
         create_notification(db, task_data.assignee_id, "task_updated", f"Task '{task.title}' was updated")
@@ -1046,6 +1066,9 @@ def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     project = db.query(Project).filter(Project.id == task.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     membership = db.query(ProjectMember).filter(
         ProjectMember.project_id == task.project_id,
         ProjectMember.user_id == current_user.id,
@@ -1076,10 +1099,10 @@ def update_task_status(
 
     old_status  = task.status
     task.status = body.status
-    task.updated_at = datetime.utcnow()
+    task.updated_at = datetime.now(timezone.utc)
 
     if body.status == "done":
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(timezone.utc)
 
     if task.assignee_id:
         create_notification(db, task.assignee_id, "task_updated",
@@ -1104,8 +1127,8 @@ def mark_task_complete(
         raise HTTPException(status_code=404, detail="Task not found")
 
     task.status       = "done"
-    task.completed_at = datetime.utcnow()
-    task.updated_at   = datetime.utcnow()
+    task.completed_at = datetime.now(timezone.utc)
+    task.updated_at   = datetime.now(timezone.utc)
 
     log_activity(db, current_user.id, f"Completed task '{task.title}'",
                  project_id=task.project_id, task_id=task.id)
@@ -1225,7 +1248,9 @@ def upload_attachment(
     if not membership:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    file_path = f"{UPLOAD_FOLDER}/{uuid.uuid4()}_{file.filename}"
+    # Sanitize filename to prevent path traversal attacks
+    safe_filename = os.path.basename(file.filename or "upload")
+    file_path = f"{UPLOAD_FOLDER}/{uuid.uuid4()}_{safe_filename}"
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 

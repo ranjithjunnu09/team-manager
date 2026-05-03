@@ -982,7 +982,7 @@ function ProjectDetailPage() {
       setAllUsers(usersRes.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [projectId, user]);
+  }, [projectId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -1221,17 +1221,6 @@ function ProjectDetailPage() {
                         )}
                       </div>
                       {col.key !== "done" && col.key !== "overdue" && (
-                        <select
-                          value={task.status}
-                          onChange={e => handleStatusChange(task.id, e.target.value)}
-                          style={{ ...S.input, padding: "5px 8px", fontSize: 12, marginBottom: 8 }}
-                        >
-                          <option value="todo">To do</option>
-                          <option value="in_progress">In progress</option>
-                          <option value="done">Done</option>
-                        </select>
-                      )}
-                      {task.status !== "done" && (
                         <select
                           value={task.status}
                           onChange={e => handleStatusChange(task.id, e.target.value)}

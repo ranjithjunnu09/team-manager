@@ -1403,14 +1403,32 @@ def dashboard_summary(
         ProjectMember.user_id == current_user.id
     ).count()
 
-    base_tasks = db.query(Task).join(
+    # FIX: separate queries instead of chaining on same base query
+    total_tasks = db.query(Task).join(
         ProjectMember, Task.project_id == ProjectMember.project_id
-    ).filter(ProjectMember.user_id == current_user.id)
+    ).filter(ProjectMember.user_id == current_user.id).count()
 
-    total_tasks     = base_tasks.count()
-    completed_tasks = base_tasks.filter(Task.status == "done").count()
-    pending_tasks   = base_tasks.filter(Task.status != "done").count()
-    overdue_tasks   = base_tasks.filter(Task.due_date < today, Task.status != "done").count()
+    completed_tasks = db.query(Task).join(
+        ProjectMember, Task.project_id == ProjectMember.project_id
+    ).filter(
+        ProjectMember.user_id == current_user.id,
+        Task.status == "done"
+    ).count()
+
+    pending_tasks = db.query(Task).join(
+        ProjectMember, Task.project_id == ProjectMember.project_id
+    ).filter(
+        ProjectMember.user_id == current_user.id,
+        Task.status != "done"
+    ).count()
+
+    overdue_tasks = db.query(Task).join(
+        ProjectMember, Task.project_id == ProjectMember.project_id
+    ).filter(
+        ProjectMember.user_id == current_user.id,
+        Task.due_date < today,
+        Task.status != "done"
+    ).count()
 
     return {
         "total_projects":  total_projects,
@@ -1419,7 +1437,6 @@ def dashboard_summary(
         "pending_tasks":   pending_tasks,
         "overdue_tasks":   overdue_tasks,
     }
-
 
 @app.get("/dashboard/task-status")
 def task_status_analytics(

@@ -314,12 +314,14 @@ function EmptyState({ title, subtitle }) {
 // ======================================================
 
 function Layout({ children }) {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
+    if (!token) return; // Don't fetch if no token
+
     API.get("/notifications/unread-count")
       .then(r => setUnread(r.data.unread_notifications || 0))
       .catch(() => {});
@@ -329,7 +331,7 @@ function Layout({ children }) {
         .catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [token]); // Add token as dependency
 
   const navItems = [
     {
